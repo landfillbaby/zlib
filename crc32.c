@@ -633,10 +633,22 @@ unsigned long ZEXPORT crc32_z(crc, buf, len)
     crc = (~crc) & 0xffffffff;
 
     /* Compute the CRC up to a word boundary. */
-    while (len && ((z_size_t)buf & 7) != 0) {
+    if (len >= 1 && ((z_size_t)buf & 1) != 0) {
         len--;
         val = *buf++;
         __asm__ volatile("crc32b %w0, %w0, %w1" : "+r"(crc) : "r"(val));
+    }
+    if (len >= 2 && ((z_size_t)buf & 2) != 0) {
+        len -= 2;
+        val = *(ush const *)buf;
+        buf += 2;
+        __asm__ volatile("crc32h %w0, %w0, %w1" : "+r"(crc) : "r"(val));
+    }
+    if (len >= 4 && ((z_size_t)buf & 4) != 0) {
+        len -= 4;
+        val = *(Z_U4 const *)buf;
+        buf += 4;
+        __asm__ volatile("crc32w %w0, %w0, %w1" : "+r"(crc) : "r"(val));
     }
 
     /* Prepare to compute the CRC on full 64-bit words word[0..num-1]. */
@@ -695,7 +707,19 @@ unsigned long ZEXPORT crc32_z(crc, buf, len)
 
     /* Complete the CRC on any remaining bytes. */
     buf = (const unsigned char FAR *)word;
-    while (len) {
+    if (len >= 4) {
+        len -= 4;
+        val = *(Z_U4 const *)buf;
+        buf += 4;
+        __asm__ volatile("crc32w %w0, %w0, %w1" : "+r"(crc) : "r"(val));
+    }
+    if (len >= 2) {
+        len -= 2;
+        val = *(ush const *)buf;
+        buf += 2;
+        __asm__ volatile("crc32h %w0, %w0, %w1" : "+r"(crc) : "r"(val));
+    }
+    if (len >= 1) {
         len--;
         val = *buf++;
         __asm__ volatile("crc32b %w0, %w0, %w1" : "+r"(crc) : "r"(val));
